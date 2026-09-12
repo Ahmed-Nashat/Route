@@ -1,0 +1,433 @@
+Q1
+
+db.createCollection("books", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["title"],
+      properties: {
+        title: {
+          bsonType: "string",
+          minLength: 1,
+          description: "title must be a non-empty string and is required"
+       }
+      }
+    }
+  }
+})
+
+{ ok: 1 }                                                    
+
+-------------------------------------------------------------------------------
+Q2
+
+db.authors.insertOne({
+   name: "George Orwell",
+   nationality: "British"
+ })
+
+{
+  acknowledged: true,
+  insertedId: ObjectId('6aa1587bc22e3ff9c6c1b0e1')
+}
+
+-------------------------------------------------------------------------------
+Q3
+
+db.createCollection("logs", {
+  capped: true,
+  size: 1048576
+})
+
+{ ok: 1 }
+
+-------------------------------------------------------------------------------
+Q4
+
+db.books.createIndex({ title: 1 })
+
+title_1
+
+-------------------------------------------------------------------------------
+Q5
+
+db.books.insertOne({
+  title: "Atomic Habits",
+  author: "James Clear",
+  publishedYear: 2018,
+  genre: "Self-help",
+  available: true
+})
+
+acknowledged: true,
+insertedId: ObjectId('6aa2e6b5bfd44cbcfb8e1ca7')
+
+-------------------------------------------------------------------------------
+Q6
+
+ignment_7> db.books.insertMany([
+ {
+   title: "Atomic Habits",
+   author: "James Clear",
+   publishedYear: 2018
+ },
+ {
+   title: "Clean Code",
+   author: "Robert C. Martin",
+   publishedYear: 2008
+ },
+ {
+   title: "The Alchemist",
+   author: "Paulo Coelho",
+   publishedYear: 1988
+ }
+])
+
+acknowledged: true,
+insertedIds: {
+  '0': ObjectId('6aa2e8c4bfd44cbcfb8e1ca8'),
+  '1': ObjectId('6aa2e8c4bfd44cbcfb8e1ca9'),
+  '2': ObjectId('6aa2e8c4bfd44cbcfb8e1caa')
+}
+
+-------------------------------------------------------------------------------
+Q7
+
+db.logs.insertOne({
+  action: "Book created",
+  message: "A new book was added successfully",
+  createdAt: new Date()
+})
+{
+  acknowledged: true,
+  insertedId: ObjectId('6aa2fd8cbfd44cbcfb8e1cab')
+}
+
+-------------------------------------------------------------------------------
+Q8
+
+db.books.updateOne(
+  { title: "future" },
+  { $set: { year: 2022 } }
+)
+{
+  acknowledged: true,
+  insertedId: null,
+  matchedCount: 0,
+  modifiedCount: 0,
+  upsertedCount: 0
+}
+
+-------------------------------------------------------------------------------
+Q9
+
+db.books.find({ title: "Brave New World" })
+[
+  {
+    _id: ObjectId('6aa3c6f1bfd44cbcfb8e1cac'),
+    title: 'Brave New World',
+    year: 1932
+  }
+]
+
+-------------------------------------------------------------------------------
+Q10
+
+db.books.find({
+   year: { $gte: 1910, $lte: 2020 }
+ })
+[
+  {
+    _id: ObjectId('6aa3c6f1bfd44cbcfb8e1cac'),
+    title: 'Brave New World',
+    year: 1932
+  }
+]
+
+-------------------------------------------------------------------------------
+Q11
+
+ db.books.find({ geners:"science fiction" })
+[
+  {
+    _id: ObjectId('6aa3eb19bfd44cbcfb8e1cb0'),
+    title: 'Brave New World',
+    year: 1932,
+    geners: 'science fiction'
+  }
+]
+
+-------------------------------------------------------------------------------
+Q12
+
+db.books.find().skip(2).limit(3)
+[
+  {
+    _id: ObjectId('6aa2e8c4bfd44cbcfb8e1ca9'),
+    title: 'Clean Code',
+    author: 'Robert C. Martin',
+    publishedYear: 2008
+  },
+  {
+    _id: ObjectId('6aa2e8c4bfd44cbcfb8e1caa'),
+    title: 'The Alchemist',
+    author: 'Paulo Coelho',
+    publishedYear: 1988
+  },
+  {
+    _id: ObjectId('6aa3c6f1bfd44cbcfb8e1cac'),
+    title: 'Brave New World',
+    year: 1932
+  }
+]
+
+-------------------------------------------------------------------------------
+Q13
+
+db.books.find({ year: { $type: "int" } })
+[
+  {
+    _id: ObjectId('6aa3c6f1bfd44cbcfb8e1cac'),
+    title: 'Brave New World',
+    year: 1932
+  },
+  {
+    _id: ObjectId('6aa3eb03bfd44cbcfb8e1cad'),
+    title: 'Brave New World',
+    year: 1932
+  },
+  {
+    _id: ObjectId('6aa3eb0abfd44cbcfb8e1cae'),
+    title: 'Brave New World',
+    year: 1932
+  },
+  {
+    _id: ObjectId('6aa3eb0dbfd44cbcfb8e1caf'),
+    title: 'Brave New World',
+    year: 1932
+  },
+  {
+    _id: ObjectId('6aa3eb19bfd44cbcfb8e1cb0'),
+    title: 'Brave New World',
+    year: 1932,
+    geners: 'science fiction'
+  }
+]
+
+-------------------------------------------------------------------------------
+Q14
+
+db.books.find({
+   genres: { $nin: ["Horror", "Science Fiction"] }
+  })
+
+  {
+    _id: ObjectId('6aa2e6b5bfd44cbcfb8e1ca7'),
+    title: 'Atomic Habits',
+    author: 'James Clear',
+    publishedYear: 2018,
+    genre: 'Self-help',
+    available: true
+  },
+  {
+    _id: ObjectId('6aa2e8c4bfd44cbcfb8e1ca8'),
+    title: 'Atomic Habits',
+    author: 'James Clear',
+    publishedYear: 2018
+  },
+
+-------------------------------------------------------------------------------
+Q15
+
+db.books.deleteMany({
+  year: { $lt: 2000 }
+})
+{ acknowledged: true, deletedCount: 5 }
+
+-------------------------------------------------------------------------------
+Q16
+
+db.books.aggregate([
+  {
+    $match: { year: { $gt: 2000 } }
+  },
+  {
+    $sort: { year: -1 }
+  }
+])
+{
+  _id: ObjectId('6aa30212222de50691e3e320'),
+  title: 'future',
+  price: 150,
+  geners: [
+    'Action',
+    'fanstasy'
+  ],
+  year: 2022,
+  author: ObjectId('6aa15625b9076624ec6ae2d6'),
+  createdAt: ISODate('2026-09-10T19:16:34.651Z'),
+  updatedAt: ISODate('2026-09-11T08:28:19.952Z'),
+  __v: 0
+}
+{
+  _id: ObjectId('6aa3b689208dbeeb71c4e4bd'),
+  title: 'Clean Architecture',
+  price: 450,
+  geners: [
+    'Software'
+  ],
+  year: 2017,
+  author: ObjectId('6aa15625b9076624ec6ae2d6'),
+  createdAt: ISODate('2026-09-11T08:06:33.599Z'),
+  updatedAt: ISODate('2026-09-11T08:06:33.599Z')
+}
+
+------------------------------------------------------------------------------
+Q17
+
+db.books.aggregate([
+  {
+    $match: { publishedYear: { $gt: 2000 } }
+  },
+  {
+    $project: {
+      _id: 0,
+      title: 1,
+      author: 1,
+      publishedYear: 1
+    }
+  }
+])
+
+------------------------------------------------------------------------------
+Q18
+
+db.books.aggregate([
+      {
+        $lookup: {
+          from: "authors",
+          localField: "author",
+          foreignField: "_id",
+          as: "author",
+        },
+      },
+      {
+        $unwind: "$geners",
+      },
+      {
+        $project: {
+          title: 1, 
+          author: { $arrayElemAt: ["$author.name", 0] },
+          year: 1,
+          geners: 1,
+          _id: 0,
+        },
+      },
+    ])
+{
+  title: 'future',
+  geners: 'Action',
+  year: 2022,
+  author: 'Ahmed'
+}
+{
+  title: 'future',
+  geners: 'fanstasy',
+  year: 2022,
+  author: 'Ahmed'
+}
+{
+  title: 'Clean Architecture',
+  geners: 'Software',
+  year: 2017,
+  author: 'Ahmed'
+}
+
+------------------------------------------------------------------------------
+Q19
+
+db.books.aggregate([
+      {
+        $lookup: {
+          from: "logs",
+          localField: "_id",
+          foreignField: "bookId",
+          as: "logs",
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          let: { authorId: "$author" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", { $toObjectId: "$$authorId" }],
+                },
+              },
+            },
+          ],
+          as: "author",
+        },
+      },
+      {
+        $project: {
+          logs: { $arrayElemAt: ["$logs.action", 0] },
+          title: 1,
+          year: 1,
+          author: { $arrayElemAt: ["$author.name", 0] },
+          _id: 0,
+        },
+      },
+    ])
+{
+  title: 'SOLID',
+  year: 2015,
+  logs: 'Created',
+  author: 'Alice'
+}
+{
+  title: 'future',
+  year: 1680,
+  logs: 'Created',
+  author: 'ali'
+}
+{
+  title: 'book5',
+  year: 1680,
+  logs: 'Created',
+  author: 'mohamed'
+}
+{
+  title: 'Backend',
+  year: 1680,
+  logs: 'Created',
+  author: 'ali'
+}
+{
+  title: 'Web',
+  year: 2015,
+  logs: 'Created',
+  author: 'Alice'
+}
+{
+  title: 'frontend',
+  year: 1680,
+  logs: 'Created',
+  author: 'mohamed'
+}
+{
+  title: 'Web',
+  year: 2015,
+  logs: 'Created',
+  author: 'Alice'
+}
+{
+  title: 'frontend',
+  year: 1680,
+  logs: 'Created',
+  author: 'mohamed'
+}
+
+------------------------------------------------------------------------------

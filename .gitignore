@@ -9,6 +9,9 @@ StudentManagmentAPI/
 js Practise/
 *.log
 
-package-lock.json
-package.json
+/package-lock.json
+/package.json
 folderico-black.ico
+.env
+**/.env
+**/node_modules/
