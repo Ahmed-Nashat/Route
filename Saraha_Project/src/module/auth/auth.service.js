@@ -1,46 +1,35 @@
-import { userModel } from "../../db/model/index.js";
 import {
   badRequestException,
+  conflictException,
+  notFoundException,
   encryptPhoneNumber,
-  checkExistence,
   createTokens,
   verifyToken,
   myCompare,
   myHash,
   enums,
+  userRepo,
 } from "../../common/index.js";
-import * as helper from "../../db/repositery/base.repo.js";
 
 export const creatUser = async (userData) => {
   const { email } = userData;
 
-  await checkExistence({
-    model: userModel,
-    searchParameter: { email },
-    isTrue: true,
-    msg: "User already exists",
-    statusCode: 409,
-  });
+  const existingUser = await userRepo.findByEmail(email);
+  if (existingUser) conflictException("User already exists");
 
   encryptPhoneNumber(userData);
 
-  return await helper.create({
-    model: userModel,
-    data: {
-      ...userData,
-      DOB: new Date(userData.DOB),
-      password: await myHash(userData.password),
-    },
+  return await userRepo.create({
+    ...userData,
+    DOB: new Date(userData.DOB),
+    password: await myHash(userData.password),
   });
 };
 
 export const login = async (userData, issuer) => {
   const { email, password } = userData;
-  const user = await checkExistence({
-    model: userModel,
-    searchParameter: { email },
-    msg: "User not found",
-  });
+  const user = await userRepo.findByEmail(email);
+  if (!user) notFoundException("User not found");
 
   const isCorrectPassword = await myCompare({
     plainText: password,

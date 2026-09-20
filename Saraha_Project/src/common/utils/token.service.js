@@ -3,9 +3,9 @@ import {
   user_refresh_secret_key,
 } from "../../config/config.service.js";
 import jwt from "jsonwebtoken";
-import { checkExistenceById } from "../helpers/index.js";
 import * as enums from "../enum/index.js";
-import { userModel } from "../../db/model/index.js";
+import { notFoundException } from "../exceptions/index.js";
+import { userRepo } from "../repo/user.repo.js";
 
 export const createTokens = ({ userId, issuer }) => {
   const jwtid = Math.ceil(Math.random() * 1000).toString();
@@ -43,12 +43,16 @@ export const verifyToken = async ({ token, tokenType }) => {
   const { sub } = jwt.decode(token);
   jwt.verify(token, secret);
 
-  return await checkExistenceById({
-    model: userModel,
-    searchParameter: sub,
-    msg: "User not found",
-    selectQuery: ["name", "firstName", "lastName", "email", "gender"],
-  });
+  const user = await userRepo.findById(sub, [
+    "name",
+    "firstName",
+    "lastName",
+    "email",
+    "gender",
+  ]);
+  if (!user) notFoundException("User not found");
+
+  return user;
 };
 
 const getSecret = (tokenType) => {
