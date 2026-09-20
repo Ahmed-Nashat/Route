@@ -22,3 +22,4 @@ export {
   checkExistenceById,
 } from "./helpers/index.js";
 export { errorHandler, authMiddleware } from "./middleware/index.js";
+export { BaseRepo, userRepo } from "./repo/index.js";

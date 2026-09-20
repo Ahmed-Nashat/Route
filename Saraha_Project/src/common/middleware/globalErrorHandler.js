@@ -22,6 +22,7 @@ export const errorHandler = (err, req, res, next) => {
 
   return res.status(err?.statusCode || err?.cause || 500).json({
     msg: err?.message || "Internal server error",
-    err
+    err,
   });
+  next();w
 };
