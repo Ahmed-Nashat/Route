@@ -6,8 +6,14 @@ class UserRepo extends BaseRepo {
     super(userModel);
   }
 
-  async findByEmail(email, projection = null) {
-    return await this.findOne({ email: email?.toLowerCase() }, projection);
+  async findByEmail({ email, projection = null }) {
+    const user = await this.model.findOne(
+      {
+        email,
+      },
+      projection,
+    );
+    return user;
   }
 }
 

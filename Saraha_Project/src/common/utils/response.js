@@ -1,4 +1,4 @@
-export const success = ({
+export const response = ({
   res,
   status = 200,
   data = undefined,

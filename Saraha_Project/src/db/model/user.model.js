@@ -27,7 +27,9 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       trim: true,
-      required: true,
+      required: function () {
+        return this.provider == enums.providerEnum.system;
+      },
       minlength: [6, "Password name must be more than 6 charachters"],
     },
     phoneNumber: {
@@ -54,13 +56,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    role: {
+      type: String,
+      enum: Object.values(enums.roleEnum),
+      default: enums.roleEnum.user,
+    },
   },
   {
+    toObject: { virtuals: true },
+    toJSON: { virtuals: true },
+    strictQuery: true,
     timestamps: true,
     strict: true,
-    strictQuery: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
   },
 );
 
