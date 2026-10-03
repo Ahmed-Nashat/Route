@@ -11,15 +11,16 @@ export {
   encrypting,
   myCompare,
   myHash,
-  success,
+  response,
   error,
   verifyToken,
+  generalFeilds,
 } from "./utils/index.js";
+export { encryptPhoneNumber, decryptPhoneNumber } from "./helpers/index.js";
 export {
-  encryptPhoneNumber,
-  decryptPhoneNumber,
-  checkExistence,
-  checkExistenceById,
-} from "./helpers/index.js";
-export { errorHandler, authMiddleware } from "./middleware/index.js";
+  errorHandler,
+  authMiddleware,
+  roleBasedAccessMiddleware,
+  validator,
+} from "./middleware/index.js";
 export { BaseRepo, userRepo } from "./repo/index.js";

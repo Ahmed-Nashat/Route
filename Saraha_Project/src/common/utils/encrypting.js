@@ -4,6 +4,7 @@ import { enc_algo, key, iv_length } from "../../config/config.service.js";
 const algorithm = enc_algo;
 const BufferedKey = Buffer.from(key, "hex");
 
+// ---------------------- ENCRYPTING -------------------------
 export const encrypting = (plainText) => {
   const iv = crypto.randomBytes(iv_length);
   const cipher = crypto.createCipheriv(algorithm, BufferedKey, iv);
@@ -12,6 +13,7 @@ export const encrypting = (plainText) => {
   return `${iv.toString("hex")}::${encrypted}`;
 };
 
+// ---------------------- DECRYPTING -------------------------
 export const decrypting = (cipherTex) => {
   let [iv, cipher] = cipherTex.split("::");
   iv = Buffer.from(iv, "hex");

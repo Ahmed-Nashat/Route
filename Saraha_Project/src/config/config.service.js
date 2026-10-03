@@ -13,5 +13,8 @@ export const port = Number(process.env.PORT),
   key = process.env.KEY,
   iv_length = Number(process.env.IV_LENGTH),
   user_access_secret_key = process.env.USER_ACCESS_SECRET_KEY,
-  user_refresh_secret_key = process.env.USER_REFRESH_SECRET_KEY
-
+  user_refresh_secret_key = process.env.USER_REFRESH_SECRET_KEY,
+  admin_access_secret_key = process.env.ADMIN_ACCESS_SECRET_KEY,
+  admin_refresh_secret_key = process.env.ADMIN_REFRESH_SECRET_KEY,
+  google_client_id = process.env.GOOGLE_CLIENT_ID,
+  google_client_secret = process.env.GOOGLE_CLIENT_SECRET;

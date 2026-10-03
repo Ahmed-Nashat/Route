@@ -1,12 +1,40 @@
 import * as enums from "../enum/index.js";
-import { verifyToken } from "../utils/index.js";
+import {
+  badRequestException,
+  notFoundException,
+  UnauthorizedException,
+} from "../exceptions/index.js";
+import { myCompare, verifyToken, userRepo } from "../index.js";
 
+// ---------------------- CHECK AUTHORIZATION ----------------
 export const authMiddleware = async (req, res, next) => {
-  const token = req.headers.authorization;
-  // inject new property into request
-  req.user = await verifyToken({
-    token,
-    tokenType: enums.tokenTypesEnum.access,
-  });
-  next();
+  const authorization = req.headers.authorization;
+  if (!authorization) UnauthorizedException("Authinticated users only");
+  let [prefix, token] = authorization.split(" ");
+
+  switch (prefix) {
+    case enums.authEnum.Basic:
+      const data = Buffer.from(token, "base64").toString();
+      const [email, password] = data.split(":");
+      const user = await userRepo.findByEmail(email);
+      if (!user) notFoundException("User not found");
+      const checkPassword = await myCompare({
+        plainText: password,
+        cypherText: user.password,
+      });
+      if (!checkPassword) notFoundException("User not found");
+      break;
+
+    case enums.authEnum.Bearer:
+      // inject new property into request
+      req.user = await verifyToken({
+        token,
+        tokenType: enums.tokenTypesEnum.access,
+      });
+      next();
+      break;
+
+    default:
+      badRequestException("Invalid auth type");
+  }
 };

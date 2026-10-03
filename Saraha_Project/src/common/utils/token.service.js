@@ -1,25 +1,33 @@
 import {
   user_access_secret_key,
   user_refresh_secret_key,
+  admin_access_secret_key,
+  admin_refresh_secret_key,
 } from "../../config/config.service.js";
 import jwt from "jsonwebtoken";
 import * as enums from "../enum/index.js";
-import { notFoundException } from "../exceptions/index.js";
+import { notFoundException, serverException } from "../exceptions/index.js";
 import { userRepo } from "../repo/user.repo.js";
 
-export const createTokens = ({ userId, issuer }) => {
+export const createTokens = ({
+  userId,
+  issuer,
+  role = enums.roleEnum.user,
+}) => {
   const jwtid = Math.ceil(Math.random() * 1000).toString();
+
+  let secrets = getTokenSecretsForRole(role);
 
   return {
     accessToken: jwt.sign(
       {
         sub: userId,
       },
-      user_access_secret_key,
+      secrets.access,
       {
         expiresIn: "30m",
         issuer,
-        audience: [enums.tokenTypesEnum.access],
+        audience: [role],
         jwtid,
       },
     ),
@@ -27,11 +35,11 @@ export const createTokens = ({ userId, issuer }) => {
       {
         sub: userId,
       },
-      user_refresh_secret_key,
+      secrets.refresh,
       {
         expiresIn: "1d",
         issuer,
-        audience: [enums.tokenTypesEnum.refresh],
+        audience: [role],
         jwtid,
       },
     ),
@@ -39,31 +47,54 @@ export const createTokens = ({ userId, issuer }) => {
 };
 
 export const verifyToken = async ({ token, tokenType }) => {
-  const secret = getSecret(tokenType);
-  const { sub } = jwt.decode(token);
+  const { aud, sub } = jwt.decode(token);
+  console.log({ sub });
+
+  const secret = getTokenSecretForType(tokenType, aud[0]);  
   jwt.verify(token, secret);
 
-  const user = await userRepo.findById(sub, [
-    "name",
-    "firstName",
-    "lastName",
-    "email",
-    "gender",
-  ]);
+  const user = await userRepo.findById({
+    id: sub,
+    select: ["name", "firstName", "lastName", "email", "role", "gender"],
+  });  
   if (!user) notFoundException("User not found");
 
   return user;
 };
 
-const getSecret = (tokenType) => {
-  let secret = null;
-  switch (tokenType) {
-    case enums.tokenTypesEnum.access:
-      secret = user_access_secret_key;
+const getTokenSecretsForRole = (role) => {
+  let secret;
+  switch (parseInt(role)) {
+    case enums.roleEnum.admin:
+      secret = {
+        access: admin_access_secret_key,
+        refresh: admin_refresh_secret_key,
+      };
+      break;
+
+    case enums.roleEnum.user:
+      secret = {
+        access: user_access_secret_key,
+        refresh: user_refresh_secret_key,
+      };
       break;
 
     default:
-      secret = user_refresh_secret_key;
+      serverException("Unhandled role");
+  }
+  return secret;
+};
+
+const getTokenSecretForType = (tokenType, role) => {
+  let secrets = getTokenSecretsForRole(role);
+  let secret;
+  switch (tokenType) {
+    case enums.tokenTypesEnum.access:
+      secret = secrets.access;
+      break;
+
+    default:
+      secret = secrets.refresh;
       break;
   }
   return secret;
