@@ -43,10 +43,7 @@ const userSchema = new mongoose.Schema(
     },
     image: String,
     deletedAt: Date,
-    confirmEmail: {
-      type: Date,
-      default: new Date(),
-    },
+    confirmEmail: Boolean,
     provider: {
       type: Number,
       enum: Object.values(enums.providerEnum),
@@ -61,6 +58,7 @@ const userSchema = new mongoose.Schema(
       enum: Object.values(enums.roleEnum),
       default: enums.roleEnum.user,
     },
+    credintialsChangedAt: Number,
   },
   {
     toObject: { virtuals: true },

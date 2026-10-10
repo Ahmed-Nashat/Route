@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { response, validator } from "../../common/index.js";
+import { authMiddleware, response, validator } from "../../common/index.js";
 import * as authService from "./auth.service.js";
 import * as authValidation from "./auth.validation.js";
 
@@ -24,6 +24,20 @@ authRouter.get(
     }
   },
 );
+
+// ---------------------- CONFIRM EMAIL ----------------------
+authRouter.post("/confirmEmail", async (req, res, next) => {
+  try {
+    const user = await authService.confirmEmail(req.body);
+    return response({
+      res,
+      msg: "Email confirmed",
+      data: user ? user : null,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
 
 // ---------------------- SIGNUP -----------------------------
 authRouter.post(
@@ -53,7 +67,7 @@ authRouter.post(
   async (req, res, next) => {
     const issuer = `${req.protocol}//${req.hostname}`;
     try {
-      const tokens = await authService.login(req.validate.body, issuer);
+      const tokens = await authService.login(req.body, issuer);
       return response({
         res,
         msg: "User loged in",
@@ -78,6 +92,62 @@ authRouter.post("/loginWithGmail", async (req, res, next) => {
       msg: "Loged in with google",
       data: token,
       status,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ---------------------- LOGOUT -----------------------------
+authRouter.post("/logout", authMiddleware, async (req, res, next) => {
+  try {
+    const data = await authService.logout(
+      req.headers.authorization,
+      req.body.type,
+    );
+    return response({
+      res,
+      data,
+      msg: "Logout",
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ---------------------- RESEND OTP -------------------------
+authRouter.post("/resendOtp", async (req, res, next) => {
+  try {
+    const msg = await authService.resendOtp(req.body);
+    return response({
+      res,
+      msg,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ---------------------- FORGET PASSWORD --------------------
+authRouter.post("/forgetPass", async (req, res, next) => {
+  try {
+    const msg = await authService.forgetPassword(req.body.email);
+    return response({
+      res,
+      msg,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ---------------------- RESET PASSWORD ---------------------
+authRouter.post("/resetPass", async (req, res, next) => {
+  try {
+    const msg = await authService.resetPassword(req.body);
+    return response({
+      res,
+      msg,
     });
   } catch (e) {
     next(e);

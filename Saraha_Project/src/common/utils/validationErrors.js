@@ -42,12 +42,19 @@ const errorsMessages = {
     en: "language must be ar or en",
   },
   wrongPhoneNumber: {
-    ar: "رقم هاتف غير صحيح, يجب ان يكون رقم الهاتف مصري",
+    ar: "رقم الهاتف غير صحيح, يجب ان يكون رقم الهاتف مصري",
     en: "invalid phone number, please enter egyptian phone number like this 01xxxxxxxxx",
   },
 };
 
 export const getErrorMessage = (lang, errorCode) => {
-  if (lang == "") lang = "en";
-  return errorsMessages[errorCode][lang];
+  const language = lang === "ar" ? "ar" : "en";
+  const keys = errorCode.split(".");
+  let messageObj = errorsMessages;
+
+  for (const key of keys) {
+    messageObj = messageObj?.[key];
+  }
+
+  return messageObj?.[language] || messageObj?.en || "";
 };

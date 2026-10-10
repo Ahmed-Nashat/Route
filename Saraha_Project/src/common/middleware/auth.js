@@ -9,14 +9,17 @@ import { myCompare, verifyToken, userRepo } from "../index.js";
 // ---------------------- CHECK AUTHORIZATION ----------------
 export const authMiddleware = async (req, res, next) => {
   const authorization = req.headers.authorization;
-  if (!authorization) UnauthorizedException("Authinticated users only");
   let [prefix, token] = authorization.split(" ");
+
+  if (!token) UnauthorizedException("Authinticated users only");
+  let user;
 
   switch (prefix) {
     case enums.authEnum.Basic:
       const data = Buffer.from(token, "base64").toString();
       const [email, password] = data.split(":");
-      const user = await userRepo.findByEmail(email);
+      user = await userRepo.findByEmail(email);
+
       if (!user) notFoundException("User not found");
       const checkPassword = await myCompare({
         plainText: password,
@@ -27,10 +30,12 @@ export const authMiddleware = async (req, res, next) => {
 
     case enums.authEnum.Bearer:
       // inject new property into request
+
       req.user = await verifyToken({
         token,
         tokenType: enums.tokenTypesEnum.access,
       });
+
       next();
       break;
 

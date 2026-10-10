@@ -8,9 +8,7 @@ export const generalFeilds = {
       .email({
         error: getErrorMessage(lang, "email"),
       })
-      .regex(
-        /^[A-Za-z0-9_\-\.]{1, }@[A-Za-z\-_]{1, 20}(\.[a-z]{2, 8}){1,2}$/,
-      ),
+      .regex(/^[A-Za-z0-9_\-\.]+@[A-Za-z\-_]{1,20}(\.[a-z]{2,8}){1,2}$/),
   password: (lang) =>
     z
       .string()
@@ -20,7 +18,7 @@ export const generalFeilds = {
   phoneNumber: (lang) =>
     z
       .e164({
-        pattern: /^10[0-25]\d{8}/,
+        pattern: /^\+201[0125]\d{8}$/,
         error: getErrorMessage(lang, "wrongPhoneNumber"),
       })
       .optional(),
@@ -47,9 +45,19 @@ export const generalFeilds = {
     }),
   headers: (lang) =>
     z.object({
-      authorization: z.string().jwt({ alg: "HS256" }),
-      "accept-language": z.enum(["ar", "en"], {
-        error: getErrorMessage(lang, "language"),
-      }),
+      authorization: z.string().refine(
+        (val) => {
+          const [prefix, token] = (val || "").split(" ");
+          return (
+            prefix === "Bearer" && z.string().jwt().safeParse(token).success
+          );
+        },
+        { message: "Invalid Bearer token" },
+      ),
+      "accept-language": z
+        .enum(["ar", "en"], {
+          error: getErrorMessage(lang, "language"),
+        })
+        .optional(),
     }),
 };

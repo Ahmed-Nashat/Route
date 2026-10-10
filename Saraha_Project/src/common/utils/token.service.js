@@ -1,22 +1,23 @@
-import {
-  user_access_secret_key,
-  user_refresh_secret_key,
-  admin_access_secret_key,
-  admin_refresh_secret_key,
-} from "../../config/config.service.js";
+import * as configService from "../../config/config.service.js";
 import jwt from "jsonwebtoken";
 import * as enums from "../enum/index.js";
-import { notFoundException, serverException } from "../exceptions/index.js";
+import {
+  notFoundException,
+  serverException,
+  UnauthorizedException,
+} from "../exceptions/index.js";
 import { userRepo } from "../repo/user.repo.js";
+import { redisService } from "../index.js";
+import crypto from "crypto";
+import { getUserKey } from "../../module/auth/auth.service.js";
 
 export const createTokens = ({
   userId,
   issuer,
   role = enums.roleEnum.user,
 }) => {
-  const jwtid = Math.ceil(Math.random() * 1000).toString();
-
-  let secrets = getTokenSecretsForRole(role);
+  const secrets = getTokenSecretsForRole(role);
+  const jwtid = crypto.randomUUID();
 
   return {
     accessToken: jwt.sign(
@@ -25,7 +26,7 @@ export const createTokens = ({
       },
       secrets.access,
       {
-        expiresIn: "30m",
+        expiresIn: configService.access_ex,
         issuer,
         audience: [role],
         jwtid,
@@ -37,7 +38,7 @@ export const createTokens = ({
       },
       secrets.refresh,
       {
-        expiresIn: "1d",
+        expiresIn: configService.refresh_ex,
         issuer,
         audience: [role],
         jwtid,
@@ -47,35 +48,91 @@ export const createTokens = ({
 };
 
 export const verifyToken = async ({ token, tokenType }) => {
-  const { aud, sub } = jwt.decode(token);
-  console.log({ sub });
+  const decoded = jwt.decode(token);
 
-  const secret = getTokenSecretForType(tokenType, aud[0]);  
-  jwt.verify(token, secret);
+  // check weither there is a revoked token for this user and this jti or not
+  if (
+    (await redisService.exists({
+      key: getRevokeKey(decoded?.sub, decoded?.jti),
+    })) === "Key exists"
+  ) {
+    UnauthorizedException("You are already loged out");
+  }
+
+  const secret = getTokenSecretForType(tokenType, decoded?.aud[0]);
+
+  try {
+    jwt.verify(token, secret);
+  } catch (err) {
+    if (err.name === "TokenExpiredError") {
+      UnauthorizedException("Token has expired");
+    }
+    throw err;
+  }
+
+  if (
+    (await redisService.exists({ key: getUserKey(decoded?.sub) })) ==
+    "Key exists"
+  ) {
+    // get the cached user from redis
+    const cachedUser = await redisService.get({
+      key: getUserKey(decoded?.sub),
+    });
+
+    if (
+      cachedUser?.credintialsChangedAt &&
+      decoded.iat <= cachedUser.credintialsChangedAt
+    ) {
+      UnauthorizedException("You are already loged out");
+    }
+
+    return cachedUser;
+  }
 
   const user = await userRepo.findById({
-    id: sub,
-    select: ["name", "firstName", "lastName", "email", "role", "gender"],
-  });  
+    id: decoded?.sub,
+    select: [
+      "name",
+      "firstName",
+      "lastName",
+      "email",
+      "role",
+      "gender",
+      "phoneNumber",
+      "credintialsChangedAt",
+    ],
+  });
   if (!user) notFoundException("User not found");
+
+  if (user.credintialsChangedAt && decoded.iat <= user.credintialsChangedAt) {
+    UnauthorizedException("You are already loged out");
+  }
+
+  // cache loged in user for 30 sec
+  await redisService.set({
+    key: `user::${user?._id}`,
+    value: user,
+    ttl: 30,
+  });
 
   return user;
 };
 
 const getTokenSecretsForRole = (role) => {
   let secret;
-  switch (parseInt(role)) {
+
+  switch (Number(role)) {
     case enums.roleEnum.admin:
       secret = {
-        access: admin_access_secret_key,
-        refresh: admin_refresh_secret_key,
+        access: configService.admin_access_secret_key,
+        refresh: configService.admin_refresh_secret_key,
       };
       break;
 
     case enums.roleEnum.user:
       secret = {
-        access: user_access_secret_key,
-        refresh: user_refresh_secret_key,
+        access: configService.user_access_secret_key,
+        refresh: configService.user_refresh_secret_key,
       };
       break;
 
@@ -99,3 +156,11 @@ const getTokenSecretForType = (tokenType, role) => {
   }
   return secret;
 };
+
+export function getRevokeKey(userId, jti) {
+  return `revokeToken::${userId}::${jti}`;
+}
+
+export function getPrefixRevoke(userId) {
+  return `revokeToken::${userId}`;
+}
