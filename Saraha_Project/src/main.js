@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import connectDB from "./db/connection.js";
-import { errorHandler } from "./common/index.js";
+import { errorHandler, redisService } from "./common/index.js";
 import { port } from "./config/config.service.js";
 import * as routers from "./module/index.js";
 
@@ -17,7 +17,6 @@ try {
 
 app.use(cors());
 app.use(express.json());
-
 
 // ---------------------- ROUTES -----------------------------
 app.use("/user", routers.userRouter);

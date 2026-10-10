@@ -12,6 +12,21 @@ import { getUserByIdSchema, pagginationSchema } from "./user.validation.js";
 
 export const userRouter = Router();
 
+// ---------------------- GET SIGNED IN USER PROFILE ---------
+userRouter.get(
+  "/",
+  authMiddleware,
+  roleBasedAccessMiddleware([enums.roleEnum.user]),
+  async (req, res) => {
+    req.user.phone = decryptPhoneNumber(req.user);
+    return response({
+      res,
+      msg: "User fetched",
+      data: req.user || {},
+    });
+  },
+);
+
 // ---------------------- GET USER PROFILE -------------------
 userRouter.get(
   "/profile/:userId",

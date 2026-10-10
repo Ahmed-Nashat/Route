@@ -1,3 +1,5 @@
+export { eventEmitter } from "./events/email.events.js";
+export { sendMail } from "./services/mail.service.js";
 export * as enums from "./enum/index.js";
 export {
   notFoundException,
@@ -24,3 +26,5 @@ export {
   validator,
 } from "./middleware/index.js";
 export { BaseRepo, userRepo } from "./repo/index.js";
+export * as redisService from "./services/cache.service.js";
+export * as templates from "./templates/templates.js";

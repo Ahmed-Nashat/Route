@@ -1,14 +1,12 @@
 import mongoose from "mongoose";
 import { db_uri } from "../config/config.service.js";
+import { redisConnection } from "./redis.connection.js";
 
 export default async () => {
   if (!db_uri) {
-    throw new Error("DB_URI is missing. Add it to your .env file.");
+    throw new Error("DB_URI is missing");
   }
-
-  await mongoose.connect(db_uri, {
-    serverSelectionTimeoutMS: 10_000,
-  });
-
+  await mongoose.connect(db_uri);
   console.log(`DB connected: ${mongoose.connection.name}`);
+  await redisConnection();
 };

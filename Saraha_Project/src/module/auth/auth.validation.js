@@ -11,7 +11,6 @@ const loginBody = (lang) =>
 export const loginSchema = (lang) =>
   z.object({
     body: loginBody(lang),
-    headers: generalFeilds.headers(lang).passthrough(),
   });
 
 const signupBody = (lang) =>
@@ -44,7 +43,6 @@ const signupBody = (lang) =>
 export const signupSchema = (lang) =>
   z.object({
     body: signupBody(lang),
-    headers: generalFeilds.headers(lang).passthrough(),
   });
 
 export const refreshTokenSchema = (lang) =>

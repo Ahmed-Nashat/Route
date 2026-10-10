@@ -33,7 +33,9 @@ export default class BaseRepo {
   }
 
   async updateOne({ filter = {}, data = {}, options = {} }) {
-    const object = await this.model.updateOne(filter, data, options);
+    const object = await this.model.updateOne(filter, data, {
+      returnDocument: "after",
+    });
     if (!object) notFoundException("Object not found");
     return object;
   }
