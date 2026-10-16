@@ -43,6 +43,7 @@ const signupBody = (lang) =>
 export const signupSchema = (lang) =>
   z.object({
     body: signupBody(lang),
+    file: generalFeilds.file(lang),
   });
 
 export const refreshTokenSchema = (lang) =>

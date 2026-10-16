@@ -6,9 +6,15 @@ import {
   decryptPhoneNumber,
   roleBasedAccessMiddleware,
   enums,
+  multerLocal,
 } from "../../common/index.js";
 import * as userService from "./user.service.js";
 import { getUserByIdSchema, pagginationSchema } from "./user.validation.js";
+import { image_upload_max_count } from "../../config/config.service.js";
+import {
+  fileTypes,
+  processFiles,
+} from "../../common/middleware/multer.local.js";
 
 export const userRouter = Router();
 
@@ -68,5 +74,66 @@ userRouter.get(
     } catch (e) {
       next(e);
     }
+  },
+);
+
+// ---------------------- IMAGE UPLOAD -----------------------
+userRouter.post(
+  "/image",
+  multerLocal({
+    fileName: "./uploads",
+    fileType: fileTypes.images,
+  }).single("image"),
+  processFiles({
+    fileType: [...fileTypes.images, ...fileTypes.pdfs],
+  }),
+  async (req, res, next) => {
+    return response({
+      res,
+      data: {
+        file: req.file,
+        body: req.body,
+      },
+    });
+  },
+);
+
+userRouter.post(
+  "/manyImage",
+  multerLocal({
+    fileName: "./uploads",
+    fileType: fileTypes.images,
+  }).array("image", image_upload_max_count),
+  processFiles({
+    fileType: [...fileTypes.images, ...fileTypes.pdfs],
+  }),
+  async (req, res, next) => {
+    return response({
+      res,
+      data: {
+        file: req.files || req.file,
+        body: req.body,
+      },
+    });
+  },
+);
+
+userRouter.post(
+  "/fieldsImage",
+  multerLocal({
+    fileName: "./uploads",
+    fileType: [...fileTypes.images, ...fileTypes.pdfs],
+  }).fields([{ name: "image", maxCount: image_upload_max_count }]),
+  processFiles({
+    fileType: [...fileTypes.images, ...fileTypes.pdfs],
+  }),
+  async (req, res, next) => {
+    return response({
+      res,
+      data: {
+        file: req.files || req.file,
+        body: req.body,
+      },
+    });
   },
 );
