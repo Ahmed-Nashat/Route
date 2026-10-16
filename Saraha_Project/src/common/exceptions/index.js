@@ -3,6 +3,9 @@ import { error } from "../utils/index.js";
 export const serverException = (msg = "Internal Server Error") =>
   error(msg, { cause: 500 });
 
+export const tooManyAttemptException = (msg = "Too Many Attempt") =>
+  error(msg, { cause: 429 });
+
 export const conflictException = (msg = "Conflict") =>
   error(msg, { cause: 409 });
 

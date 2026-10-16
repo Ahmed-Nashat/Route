@@ -31,7 +31,7 @@ export const generalFeilds = {
   DOB: (lang) => z.string(),
   scores: (lang) => z.array(z.number()).nonempty().optional(),
   gender: (lang) =>
-    z.union([z.literal(genderEnum.male), z.literal(genderEnum.female)], {
+    z.enum(genderEnum, {
       error: getErrorMessage(lang, "gender"),
     }),
   id: (lang) => z.string().length(24).min(1),
@@ -59,5 +59,12 @@ export const generalFeilds = {
           error: getErrorMessage(lang, "language"),
         })
         .optional(),
+    }),
+  file: () =>
+    z.object({
+      fieldname: () => z.string(),
+      originalname: () => z.string(),
+      encoding: () => z.string(),
+      mimetype: () => z.string(),
     }),
 };

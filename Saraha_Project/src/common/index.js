@@ -6,6 +6,7 @@ export {
   conflictException,
   forbiddenException,
   badRequestException,
+  tooManyAttemptException,
 } from "./exceptions/index.js";
 export {
   createTokens,
@@ -24,6 +25,9 @@ export {
   authMiddleware,
   roleBasedAccessMiddleware,
   validator,
+  multerLocal,
+  processFiles,
+  fileTypes,
 } from "./middleware/index.js";
 export { BaseRepo, userRepo } from "./repo/index.js";
 export * as redisService from "./services/cache.service.js";

@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import connectDB from "./db/connection.js";
-import { errorHandler, redisService } from "./common/index.js";
+import { errorHandler } from "./common/index.js";
 import { port } from "./config/config.service.js";
 import * as routers from "./module/index.js";
 
@@ -21,6 +21,7 @@ app.use(express.json());
 // ---------------------- ROUTES -----------------------------
 app.use("/user", routers.userRouter);
 app.use("/auth", routers.authRouter);
+app.use("/uploads", express.static("uploads"));
 
 // ---------------------- HEALTH CHECK -----------------------
 app.get("/", (req, res, next) => {
@@ -31,8 +32,6 @@ app.get("/", (req, res, next) => {
 
 // ---------------------- DUMMY ------------------------------
 app.use("/{*dummy}", (req, res, next) => {
-  console.log(req.params.dummy);
-
   res.status(404).json({
     msg: "404 PAGE NOT FOUND",
     route: req.params.dummy.join("/"),

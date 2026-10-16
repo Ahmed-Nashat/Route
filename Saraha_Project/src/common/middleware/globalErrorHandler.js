@@ -1,5 +1,14 @@
+import multer from "multer";
+
 export const errorHandler = (err, req, res, next) => {
   console.error(err);
+
+  if (err instanceof multer.MulterError) {
+    return res.status(err?.statusCode || err?.cause || 500).json({
+      msg: err?.message || "Internal server error",
+      err,
+    });
+  }
 
   if (err?.name === "ValidationError") {
     return res.status(400).json({

@@ -1,8 +1,14 @@
 import { Router } from "express";
-import { authMiddleware, response, validator } from "../../common/index.js";
+import {
+  authMiddleware,
+  multerLocal,
+  response,
+  validator,
+  processFiles,
+  fileTypes,
+} from "../../common/index.js";
 import * as authService from "./auth.service.js";
 import * as authValidation from "./auth.validation.js";
-
 export const authRouter = Router();
 
 // ---------------------- REFRESH TOKEN ----------------------
@@ -44,9 +50,11 @@ authRouter.post(
   "/signup",
   // validation midlleware
   validator(authValidation.signupSchema),
+  multerLocal({ fileType: fileTypes.images }).single("image"),
+  processFiles({ fileType: fileTypes.images }),
   async (req, res, next) => {
     try {
-      const user = await authService.creatUser(req.validate.body);
+      const user = await authService.creatUser(req.validate.body, req.file);
       return response({
         res,
         msg: user ? "User created" : "User creation failed",

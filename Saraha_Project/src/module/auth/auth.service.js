@@ -11,10 +11,15 @@ import {
   redisService,
   conflictException,
   notFoundException,
+  tooManyAttemptException,
   decryptPhoneNumber,
 } from "../../common/index.js";
 import { OAuth2Client } from "google-auth-library";
-import { google_client_id, refresh_ex } from "../../config/config.service.js";
+import {
+  google_client_id,
+  image_upload_max_count,
+  refresh_ex,
+} from "../../config/config.service.js";
 import jwt from "jsonwebtoken";
 import {
   getPrefixRevoke,
@@ -77,7 +82,7 @@ const blockUser = async (userId) => {
   if (userOtpretries && userOtpretries == max_otp_retries) {
     // delete the active otp
     await redisService.del({ key: [getUserOTPKey(userId)] });
-    badRequestException(
+    tooManyAttemptException(
       `Try again after ${Math.ceil((await redisService.ttl({ key: userOtpretries })) / 60)} minutes`,
     );
   }
@@ -102,8 +107,12 @@ export const refreshToken = async (refreshToken, issuer) => {
 };
 
 // ---------------------- SIGNUP -----------------------------
-export const creatUser = async (userData) => {
+export const creatUser = async (userData, file) => {
   const { email, password } = userData;
+  let imagePath = "";
+
+  if (file.path) imagePath = `/uploads ${file.path.split("uploads")[1]}`;
+  else if (file.fullPath) imagePath = file.fullPath;
 
   const user = await userRepo.findByEmail({ email });
   if (user) conflictException("This email is already exists");
@@ -113,6 +122,7 @@ export const creatUser = async (userData) => {
     DOB: new Date(userData.DOB),
     password: await myHash(password),
     phoneNumber: encryptPhoneNumber(userData),
+    image: imagePath,
   });
 
   newUser.phoneNumber = decryptPhoneNumber(newUser);
@@ -149,13 +159,13 @@ export const resendOtp = async ({ email, topic }) => {
       const otpKey = getUserOTPKey(user?._id || user?.id);
 
       if ((await redisService.exists({ key: otpKey })) === "Key exists") {
-        badRequestException("cant't send new OTP try again later");
+        tooManyAttemptException("cant't send new OTP try again later");
       }
 
       let count = await redisService.get({ key: sendKey });
       if (count) {
         if (count == max_send_retries) {
-          badRequestException(
+          tooManyAttemptException(
             `You reached your limit, please try after ${
               (await redisService.ttl({ key: sendKey })) < 1
                 ? 0

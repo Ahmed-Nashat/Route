@@ -10,6 +10,7 @@ export const validator = (schema) => {
       params: req.params,
       query: req.query,
       headers: req.headers,
+      file: req.file,
     });
 
     if (!success) {
