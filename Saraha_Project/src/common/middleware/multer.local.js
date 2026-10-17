@@ -10,6 +10,68 @@ export const fileTypes = {
   vidoes: ["video/mp4"],
 };
 
+// ---------------------- FUNCTIONS --------------------------
+const processSingleFile = async ({ file, fileType }) => {
+  let result;
+
+  // store on memory
+  if (file.buffer) {
+    result = await fileTypeFromBuffer(file.buffer);
+  } else if (file.path) {
+    // store on local storage
+    result = await fileTypeFromFile(file.path);
+  }
+
+  const mime = result?.mime;
+
+  if (!result || !fileType.includes(mime)) {
+    // delete unsupported file
+    if (file.path && fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
+    }
+    return null;
+  }
+
+  if (file.buffer) {
+    const folderPath = "./uploads";
+    if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath);
+    const fullPath = `${folderPath}/${Date.now()}.${result.ext}`;
+    fs.writeFileSync(fullPath, file.buffer);
+    file.fullPath = fullPath;
+  }
+
+  return file;
+};
+
+const checkValidFiles = ({ req, file, processed, approvedFiles }) => {
+  if (processed) approvedFiles.push(processed);
+  else {
+    req.rejectedFiles.push({
+      name: file.originalname,
+      reason: "Invalid file type",
+    });
+  }
+};
+
+const processFilesList = async ({ files, fileType, req }) => {
+  const approvedFiles = [];
+
+  for (const file of files) {
+    const processed = await processSingleFile({
+      file,
+      fileType,
+    });
+    checkValidFiles({
+      req,
+      file,
+      processed,
+      approvedFiles,
+    });
+  }
+  return approvedFiles;
+};
+// -----------------------------------------------------------
+
 // store data on local storage
 export const multerLocal = ({ fileName, fileType }) => {
   const storage = multer.diskStorage({
@@ -68,46 +130,30 @@ export const processFiles = ({ fileType }) => {
       // Signle
       if (req.file) {
         // return file if approved || return nothing if rejected
-        const processed = await processSingleFile({ file: req.file, fileType });
-        if (!processed) {
-          req.rejectedFiles.push({
-            name: req.file.originalname,
-            reason: "Invlaid file signature",
-          });
-          req.file = null;
-        } else {
-          req.file = processed;
-        }
+        const [approved] = await processFilesList({
+          files: [req.file],
+          file,
+          req,
+        });
+        req.file = approved || null;
         // Array
       } else if (Array.isArray(req.files) && req.files.length > 0) {
-        const approvedFiles = [];
-        for (let file of req.files) {
-          const processed = await processSingleFile({ file, fileType });
-          checkValidFiles({ req, file, processed, approvedFiles });
-        }
-        req.files = approvedFiles; // keeps only valid files
+        req.files = processFilesList({
+          files: req.files,
+          fileType,
+          req,
+        }); // keeps only valid files
         // Fields
       } else if (
         typeof req.files == "object" &&
         Object.keys(req.files).length > 0
       ) {
-        let keys = Object.keys(req.files);
-        for (let i = 0; i < keys.length; i++) {
-          const approvedFiles = [];
-          let key = req.files[keys[i]];
-          for (let j = 0; j < key.length; j++) {
-            const processed = await processSingleFile({
-              file: key[j],
-              fileType,
-            });
-            checkValidFiles({
-              req,
-              file: key[j],
-              processed,
-              approvedFiles,
-            });
-          }
-          req.files[keys[i]] = approvedFiles;
+        for (const key of Object.keys(req.files)) {
+          req.files[key] = await processFilesList({
+            files: req.files[key],
+            fileType,
+            req,
+          });
         }
       }
       next();
@@ -115,46 +161,4 @@ export const processFiles = ({ fileType }) => {
       next(err);
     }
   };
-};
-
-const processSingleFile = async ({ file, fileType }) => {
-  let result;
-
-  // store on memory
-  if (file.buffer) {
-    result = await fileTypeFromBuffer(file.buffer);
-  } else if (file.path) {
-    // store on local storage
-    result = await fileTypeFromFile(file.path);
-  }
-
-  const mime = result?.mime;
-
-  if (!result || !fileType.includes(mime)) {
-    // delete unsupported file
-    if (file.path && fs.existsSync(file.path)) {
-      fs.unlinkSync(file.path);
-    }
-    return null;
-  }
-
-  if (file.buffer) {
-    const folderPath = "./uploads";
-    if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath);
-    const fullPath = `${folderPath}/${Date.now()}.${result.ext}`;
-    fs.writeFileSync(fullPath, file.buffer);
-    file.fullPath = fullPath;
-  }
-
-  return file;
-};
-
-const checkValidFiles = ({ req, file, processed, approvedFiles }) => {
-  if (processed) approvedFiles.push(processed);
-  else {
-    req.rejectedFiles.push({
-      name: file.originalname,
-      reason: "Invalid file type",
-    });
-  }
 };
