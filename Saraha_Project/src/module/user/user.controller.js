@@ -77,7 +77,7 @@ userRouter.get(
   },
 );
 
-// ---------------------- IMAGE UPLOAD -----------------------
+// ---------------------- FILE UPLOAD ------------------------
 userRouter.post(
   "/image",
   multerLocal({
@@ -85,15 +85,12 @@ userRouter.post(
     fileType: fileTypes.images,
   }).single("image"),
   processFiles({
-    fileType: [...fileTypes.images, ...fileTypes.pdfs],
+    fileType: fileTypes.images,
   }),
   async (req, res, next) => {
     return response({
       res,
-      data: {
-        file: req.file,
-        body: req.body,
-      },
+      data: files(req),
     });
   },
 );
@@ -105,15 +102,48 @@ userRouter.post(
     fileType: fileTypes.images,
   }).array("image", image_upload_max_count),
   processFiles({
-    fileType: [...fileTypes.images, ...fileTypes.pdfs],
+    fileType: fileTypes.images,
+  }),
+  async (req, res, next) => {
+    console.log({ rejectedFiles: req.rejectedFiles });
+    return response({
+      res,
+      data: files(req),
+    });
+  },
+);
+
+userRouter.post(
+  "/pdf",
+  multerLocal({
+    fileName: "./uploads",
+    fileType: fileTypes.pdfs,
+  }).single("pdf"),
+  processFiles({
+    fileType: fileTypes.pdfs,
   }),
   async (req, res, next) => {
     return response({
       res,
-      data: {
-        file: req.files || req.file,
-        body: req.body,
-      },
+      data: files(req),
+    });
+  },
+);
+
+userRouter.post(
+  "/manyPdf",
+  multerLocal({
+    fileName: "./uploads",
+    fileType: fileTypes.pdfs,
+  }).array("pdf", image_upload_max_count),
+  processFiles({
+    fileType: fileTypes.pdfs,
+  }),
+  async (req, res, next) => {
+    console.log({ rejectedFiles: req.rejectedFiles });
+    return response({
+      res,
+      data: files(req),
     });
   },
 );
@@ -130,10 +160,15 @@ userRouter.post(
   async (req, res, next) => {
     return response({
       res,
-      data: {
-        file: req.files || req.file,
-        body: req.body,
-      },
+      data: files(req),
     });
   },
 );
+
+const files = (req) => {
+  return {
+    uploadedFiles: req.files || req.file,
+    rejectedFiles: req.rejectedFiles || [],
+    body: req.body,
+  };
+};
