@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from "../exceptions/index.js";
 import { userRepo } from "../repo/user.repo.js";
-import { redisService } from "../index.js";
+import * as redisService from "../services/cache.service.js";
 import crypto from "crypto";
 import { getUserKey } from "../../module/auth/auth.service.js";
 
@@ -52,9 +52,9 @@ export const verifyToken = async ({ token, tokenType }) => {
 
   // check weither there is a revoked token for this user and this jti or not
   if (
-    (await redisService.exists({
+    await redisService.exists({
       key: getRevokeKey(decoded?.sub, decoded?.jti),
-    })) === "Key exists"
+    })
   ) {
     UnauthorizedException("You are already loged out");
   }
@@ -70,19 +70,18 @@ export const verifyToken = async ({ token, tokenType }) => {
     throw err;
   }
 
-  if (
-    (await redisService.exists({ key: getUserKey(decoded?.sub) })) ==
-    "Key exists"
-  ) {
+  if (await redisService.exists({ key: getUserKey(decoded?.sub) })) {
     // get the cached user from redis
     const cachedUser = await redisService.get({
       key: getUserKey(decoded?.sub),
     });
 
-    if (
-      cachedUser?.credintialsChangedAt &&
-      decoded.iat <= cachedUser.credintialsChangedAt
-    ) {
+    const cachedCredsInSec =
+      cachedUser?.credintialsChangedAt > 1e11
+        ? Math.floor(cachedUser.credintialsChangedAt / 1000)
+        : cachedUser?.credintialsChangedAt;
+
+    if (cachedCredsInSec && decoded.iat <= cachedCredsInSec) {
       UnauthorizedException("You are already loged out");
     }
 
@@ -104,7 +103,12 @@ export const verifyToken = async ({ token, tokenType }) => {
   });
   if (!user) notFoundException("User not found");
 
-  if (user.credintialsChangedAt && decoded.iat <= user.credintialsChangedAt) {
+  const userCredsInSec =
+    user.credintialsChangedAt > 1e11
+      ? Math.floor(user.credintialsChangedAt / 1000)
+      : user.credintialsChangedAt;
+
+  if (userCredsInSec && decoded.iat <= userCredsInSec) {
     UnauthorizedException("You are already loged out");
   }
 

@@ -4,3 +4,4 @@ saraha_amira
 .env.*
 !.env.example
 client_secret.json
+uploads/

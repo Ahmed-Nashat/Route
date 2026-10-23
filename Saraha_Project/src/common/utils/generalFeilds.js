@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { genderEnum } from "../enum/index.js";
 import { getErrorMessage } from "./validationErrors.js";
+import { isValidObjectId } from "mongoose";
 
 export const generalFeilds = {
   email: (lang) =>
@@ -34,7 +35,14 @@ export const generalFeilds = {
     z.enum(genderEnum, {
       error: getErrorMessage(lang, "gender"),
     }),
-  id: (lang) => z.string().length(24).min(1),
+  id: (lang) =>
+    z
+      .string()
+      .min(14)
+      .max(24)
+      .refine((value) => isValidObjectId(value), {
+        error: getErrorMessage(lang, "invalidObjectId"),
+      }),
   page: (lang) => z.coerce.number().gte(1),
   limit: (lang) => z.coerce.number().gte(1),
   stringBool: (lang) =>
@@ -60,11 +68,16 @@ export const generalFeilds = {
         })
         .optional(),
     }),
-  file: () =>
+  file: (lang) =>
     z.object({
-      fieldname: () => z.string(),
-      originalname: () => z.string(),
-      encoding: () => z.string(),
-      mimetype: () => z.string(),
+      fieldname: z.string(),
+      originalname: z.string(),
+      encoding: z.string(),
+      mimetype: z.string(),
+      size: z.number().optional(),
+      path: z.string().optional(),
+      destination: z.string().optional(),
+      filename: z.string().optional(),
+      buffer: z.string().optional(),
     }),
 };

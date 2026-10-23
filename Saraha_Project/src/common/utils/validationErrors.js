@@ -45,11 +45,15 @@ const errorsMessages = {
     ar: "رقم الهاتف غير صحيح, يجب ان يكون رقم الهاتف مصري",
     en: "invalid phone number, please enter egyptian phone number like this 01xxxxxxxxx",
   },
+  invalidObjectId: {
+    ar: "معرف مونجو غير صحيح",
+    en: "This isn't valid ObjectId",
+  },
 };
 
 export const getErrorMessage = (lang, errorCode) => {
   const language = lang === "ar" ? "ar" : "en";
-  const keys = errorCode.split(".");
+  const keys = errorCode?.split(".");
   let messageObj = errorsMessages;
 
   for (const key of keys) {
