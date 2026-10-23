@@ -4,7 +4,8 @@ import {
   notFoundException,
   UnauthorizedException,
 } from "../exceptions/index.js";
-import { myCompare, verifyToken, userRepo } from "../index.js";
+import { myCompare, verifyToken } from "../utils/index.js";
+import { userRepo } from "../repo/index.js";
 
 // ---------------------- CHECK AUTHORIZATION ----------------
 export const authMiddleware = async (req, res, next) => {

@@ -16,11 +16,7 @@ export const get = async ({ key }) => {
   return result;
 };
 
-export const exists = async ({ key }) => {
-  const isExists = await client.exists(key);
-  if (isExists === 1) return "Key exists";
-  return "Key is not exists";
-};
+export const exists = async ({ key }) => await client.exists(key);
 
 export const del = async ({ key }) => {
   // accept single key and arrays

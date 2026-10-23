@@ -54,6 +54,10 @@ const userSchema = new mongoose.Schema(
       enum: Object.values(enums.roleEnum),
       default: enums.roleEnum.user,
     },
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false,
+    },
     credintialsChangedAt: Number,
     confirmEmail: Boolean,
     deletedAt: Date,

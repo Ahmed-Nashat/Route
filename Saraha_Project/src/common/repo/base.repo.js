@@ -6,17 +6,47 @@ export default class BaseRepo {
     this.model = model;
   }
 
-  async create(data) {
+  async create({ data }) {
     try {
       return await this.model.create(data);
     } catch (e) {
-      badRequestException("Something went wrong");
+      ({ e });
+
+      badRequestException(e.message || "Something went wrong");
     }
   }
 
-  async find(where = {}, projection = null, options = {}, skip, limit) {
-    const object = await this.model.find(where).skip(skip).limit(limit);
-    return object;
+  async find({
+    where = {},
+    projection = null,
+    options = {},
+    skip,
+    limit,
+    sort,
+    select,
+    page,
+  }) {
+    const object = await this.model
+      .find(where, projection, options)
+      .skip(skip)
+      .limit(limit)
+      .sort(sort)
+      .select(select);
+
+    const count = await this.model.countDocuments(where);
+    const totalPages = count / limit;
+    const hasNextPage = page != totalPages;
+
+    return {
+      object,
+      meta: {
+        count,
+        totalPages,
+        currenPage: page,
+        hasNextPage,
+        hasPreviousPage: page != 1,
+      },
+    };
   }
 
   async findOne({ filter = {}, projection = null, options = {} }) {

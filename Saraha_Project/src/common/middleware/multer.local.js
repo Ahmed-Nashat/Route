@@ -1,8 +1,8 @@
+import { badRequestException } from "../exceptions/index.js";
+import { fileTypeFromBuffer, fileTypeFromFile } from "file-type";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { badRequestException } from "../exceptions/index.js";
-import { fileTypeFromBuffer, fileTypeFromFile } from "file-type";
 
 export const fileTypes = {
   images: ["image/png", "image/jpeg", "image/jpg", "image/webp"],
@@ -15,32 +15,34 @@ const processSingleFile = async ({ file, fileType }) => {
   let result;
 
   // store on memory
-  if (file.buffer) {
-    result = await fileTypeFromBuffer(file.buffer);
-  } else if (file.path) {
-    // store on local storage
-    result = await fileTypeFromFile(file.path);
-  }
+  if (file.buffer) result = await fileTypeFromBuffer(file.buffer);
+  // store on local storage
+  else if (file.path) result = await fileTypeFromFile(file.path); // reading the file magic number
 
+  // store the file mimeType
   const mime = result?.mime;
 
+  // delete unsupported file
   if (!result || !fileType.includes(mime)) {
-    // delete unsupported file
-    if (file.path && fs.existsSync(file.path)) {
-      fs.unlinkSync(file.path);
-    }
+    if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
     return null;
   }
 
+  // if stored in memory
   if (file.buffer) {
-    const folderPath = "./uploads";
-    if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath);
+    const folderPath = checkPath("./uploads");
     const fullPath = `${folderPath}/${Date.now()}.${result.ext}`;
     fs.writeFileSync(fullPath, file.buffer);
     file.fullPath = fullPath;
   }
 
   return file;
+};
+
+const checkPath = (fileName) => {
+  const folderPath = path.resolve(fileName);
+  if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath);
+  return folderPath;
 };
 
 const checkValidFiles = ({ req, file, processed, approvedFiles }) => {
@@ -57,6 +59,7 @@ const processFilesList = async ({ files, fileType, req }) => {
   const approvedFiles = [];
 
   for (const file of files) {
+    // check the magic number of the provided files
     const processed = await processSingleFile({
       file,
       fileType,
@@ -73,12 +76,13 @@ const processFilesList = async ({ files, fileType, req }) => {
 // -----------------------------------------------------------
 
 // store data on local storage
-export const multerLocal = ({ fileName, fileType }) => {
+export const multerLocal = ({ fileType, customPath }) => {
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-      const folderPath = path.resolve(fileName);
-      // create folder if not exists
-      if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath);
+      let folderPath = checkPath(path.resolve("./uploads"));
+      if (customPath) {
+        folderPath = checkPath(path.resolve(`./uploads/${customPath}`));
+      }
       cb(null, folderPath);
     },
     filename: (req, file, cb) => {
@@ -132,13 +136,13 @@ export const processFiles = ({ fileType }) => {
         // return file if approved || return nothing if rejected
         const [approved] = await processFilesList({
           files: [req.file],
-          file,
+          fileType,
           req,
         });
         req.file = approved || null;
         // Array
       } else if (Array.isArray(req.files) && req.files.length > 0) {
-        req.files = processFilesList({
+        req.files = await processFilesList({
           files: req.files,
           fileType,
           req,

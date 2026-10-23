@@ -81,7 +81,6 @@ userRouter.get(
 userRouter.post(
   "/image",
   multerLocal({
-    fileName: "./uploads",
     fileType: fileTypes.images,
   }).single("image"),
   processFiles({
@@ -98,14 +97,13 @@ userRouter.post(
 userRouter.post(
   "/manyImage",
   multerLocal({
-    fileName: "./uploads",
     fileType: fileTypes.images,
   }).array("image", image_upload_max_count),
   processFiles({
     fileType: fileTypes.images,
   }),
   async (req, res, next) => {
-    console.log({ rejectedFiles: req.rejectedFiles });
+    ({ rejectedFiles: req.rejectedFiles });
     return response({
       res,
       data: files(req),
@@ -116,7 +114,6 @@ userRouter.post(
 userRouter.post(
   "/pdf",
   multerLocal({
-    fileName: "./uploads",
     fileType: fileTypes.pdfs,
   }).single("pdf"),
   processFiles({
@@ -133,14 +130,13 @@ userRouter.post(
 userRouter.post(
   "/manyPdf",
   multerLocal({
-    fileName: "./uploads",
     fileType: fileTypes.pdfs,
   }).array("pdf", image_upload_max_count),
   processFiles({
     fileType: fileTypes.pdfs,
   }),
   async (req, res, next) => {
-    console.log({ rejectedFiles: req.rejectedFiles });
+    ({ rejectedFiles: req.rejectedFiles });
     return response({
       res,
       data: files(req),
@@ -151,7 +147,6 @@ userRouter.post(
 userRouter.post(
   "/fieldsImage",
   multerLocal({
-    fileName: "./uploads",
     fileType: [...fileTypes.images, ...fileTypes.pdfs],
   }).fields([{ name: "image", maxCount: image_upload_max_count }]),
   processFiles({

@@ -9,85 +9,18 @@ import {
   enums,
   userRepo,
   redisService,
-  conflictException,
   notFoundException,
-  tooManyAttemptException,
   decryptPhoneNumber,
+  tooManyAttemptException,
 } from "../../common/index.js";
 import { OAuth2Client } from "google-auth-library";
 import {
   google_client_id,
-  image_upload_max_count,
-  refresh_ex,
+  max_send_retries,
 } from "../../config/config.service.js";
 import jwt from "jsonwebtoken";
-import {
-  getPrefixRevoke,
-  getRevokeKey,
-} from "../../common/utils/token.service.js";
-import crypto from "crypto";
-import {
-  max_send_retries,
-  max_otp_retries,
-} from "../../config/config.service.js";
-
-// ---------------------- FUNCTIONS --------------------------
-export const getUserKey = (userId) => `user::${userId?.toString()}`;
-export const getUserOTPKey = (userId) => `otp::${getUserKey(userId)}`;
-export const getUserOTPForgetKey = (userId) =>
-  `forget::${getUserOTPKey(userId)}`;
-const getUserSendKey = (userId) => `send::${getUserKey(userId)}`;
-const getUserOtpTriesKey = (userId) => `tries::${getUserOTPKey(userId)}`;
-const generateOtp = () => crypto.randomInt(100000, 1000000);
-const createAndSendOtp = async ({ user, event }) => {
-  const otp = generateOtp();
-  await redisService.set({
-    key: getUserOTPForgetKey(user?.id),
-    value: otp,
-    ttl: 5 * 60,
-  });
-  eventEmitter.emit(event, {
-    recipients: { to: user?.email },
-    otp,
-    name: user?.name,
-  });
-};
-const revokedToken = async (token) => {
-  const data = jwt.decode(token),
-    currentTimeInSec = Math.ceil(Date.now() / 1000),
-    iat = currentTimeInSec - data.iat,
-    ttl = refresh_ex - iat;
-
-  if (ttl > 0) {
-    redisService.set({
-      key: getRevokeKey(data?.sub, data?.jti),
-      value: 1,
-      ttl,
-    });
-  }
-};
-const wrongOtpHandler = async (userId) => {
-  const key = getUserOtpTriesKey(userId);
-  if (await redisService.exists({ key })) {
-    await redisService.incr({ key });
-  } else {
-    await redisService.set({ key, value: 1, ttl: 5 * 60 });
-  }
-  badRequestException("Wrong OTP");
-};
-const blockUser = async (userId) => {
-  const userOtpretries = await redisService.get({
-    key: getUserOtpTriesKey(userId),
-  });
-  if (userOtpretries && userOtpretries == max_otp_retries) {
-    // delete the active otp
-    await redisService.del({ key: [getUserOTPKey(userId)] });
-    tooManyAttemptException(
-      `Try again after ${Math.ceil((await redisService.ttl({ key: userOtpretries })) / 60)} minutes`,
-    );
-  }
-};
-// -----------------------------------------------------------
+import { getPrefixRevoke } from "../../common/utils/token.service.js";
+import * as authHelper from "./auth.helper.js";
 
 // ---------------------- REFRESH TOKEN ----------------------
 export const refreshToken = async (refreshToken, issuer) => {
@@ -98,7 +31,7 @@ export const refreshToken = async (refreshToken, issuer) => {
     tokenType: enums.tokenTypesEnum.refresh,
   });
   // revoke the old refresh token
-  await revokedToken(token);
+  await authHelper.revokedToken(token);
   return createTokens({
     userId: user._id || user.id,
     issuer,
@@ -111,33 +44,39 @@ export const creatUser = async (userData, file) => {
   const { email, password } = userData;
   let imagePath = "";
 
-  if (file.path) imagePath = `/uploads ${file.path.split("uploads")[1]}`;
-  else if (file.fullPath) imagePath = file.fullPath;
+  if (file?.path) {
+    const normalizedPath = file.path.replace(/\\/g, "/");
+    imagePath = `/uploads${normalizedPath.split("/uploads")[1]}`;
+  } else if (file?.fullPath) imagePath = file.fullPath.replace(/\\/g, "/");
 
-  const user = await userRepo.findByEmail({ email });
-  if (user) conflictException("This email is already exists");
+  const user = await authHelper.checkUser({ email, exists: false });
 
   const newUser = await userRepo.create({
-    ...userData,
-    DOB: new Date(userData.DOB),
-    password: await myHash(password),
-    phoneNumber: encryptPhoneNumber(userData),
-    image: imagePath,
+    data: {
+      ...userData,
+      DOB: new Date(userData.DOB),
+      password: await myHash(password),
+      phoneNumber: encryptPhoneNumber(userData),
+      image: imagePath,
+    },
   });
 
   newUser.phoneNumber = decryptPhoneNumber(newUser);
   newUser.password = password;
 
-  await createAndSendOtp({ user, event: enums.eventEnum.signup });
+  await authHelper.createAndSendOtp({
+    user: newUser,
+    event: enums.eventEnum.signup,
+  });
   return newUser;
 };
 
 // ---------------------- CONFIRM EMAIL ----------------------
 export const confirmEmail = async ({ email, otp }) => {
-  const user = await userRepo.findByEmail({ email });
-  const UserOtpkey = getUserOTPKey(user?.id);
+  const user = await authHelper.checkUser({ email });
+  const UserOtpkey = authHelper.getUserOTPKey(user?.id);
 
-  await blockUser(user?.id);
+  await authHelper.blockUser({ userId: user?.id, userOtpKey });
 
   const redisOtp = await redisService.get({ key: UserOtpkey });
   user.phoneNumber = decryptPhoneNumber(user);
@@ -146,7 +85,7 @@ export const confirmEmail = async ({ email, otp }) => {
     await user.updateOne({ $set: { confirmEmail: true } });
     await redisService.del({ key: [UserOtpkey] });
     return user;
-  } else await wrongOtpHandler(user?.id);
+  } else await authHelper.wrongOtpHandler(user?.id);
 };
 
 // ---------------------- RESEND OTP -------------------------
@@ -155,10 +94,10 @@ export const resendOtp = async ({ email, topic }) => {
 
   switch (topic) {
     case enums.eventEnum.signup:
-      const sendKey = getUserSendKey(user?._id || user?.id);
-      const otpKey = getUserOTPKey(user?._id || user?.id);
+      const sendKey = authHelper.getUserSendKey(user?._id || user?.id);
+      const otpKey = authHelper.getUserOTPKey(user?._id || user?.id);
 
-      if ((await redisService.exists({ key: otpKey })) === "Key exists") {
+      if (await redisService.exists({ key: otpKey })) {
         tooManyAttemptException("cant't send new OTP try again later");
       }
 
@@ -175,7 +114,7 @@ export const resendOtp = async ({ email, topic }) => {
         } else await redisService.incr({ key: sendKey });
       } else await redisService.set({ key: sendKey, value: 1, ttl: 600 });
 
-      const otp = generateOtp();
+      const otp = authHelper.generateOtp();
       await redisService.set({
         key: otpKey,
         value: otp,
@@ -199,25 +138,59 @@ export const resendOtp = async ({ email, topic }) => {
 export const login = async (userData, issuer) => {
   const { email, password } = userData;
 
-  const user = await userRepo.findByEmail({ email });
-  if (!user) notFoundException("User not found");
+  const user = await authHelper.checkUser({ email });
 
   await myCompare({
     plainText: password,
     cypherText: user.password,
   });
 
-  eventEmitter.emit(enums.eventEnum.login, {
-    recipients: { to: email },
-    subject: "New login",
-    text: `a new login detected at ${new Date()}, if it's not you please change the password`,
-  });
+  if (user.twoFactorEnabled) {
+    await authHelper.blockUser({
+      userId: user?.id,
+      userOtpKey: authHelper.getUserOTPKey(user?.id),
+    });
+    const otp = authHelper.generateOtp();
+    await redisService.set({
+      key: authHelper.getUser2FAKey(user?.id),
+      value: otp,
+      ttl: 300,
+    });
+    eventEmitter.emit(enums.eventEnum.fa, {
+      recipients: { to: email },
+      name: user.firstName,
+      otp,
+    });
 
-  return createTokens({
-    userId: user.id,
-    issuer,
-    role: user.role,
+    return {
+      message: "2FA OTP sent to your email",
+      require2FA: true,
+      userId: user?.id,
+    };
+  }
+
+  return await authHelper.verifyLogin({ issuer, user });
+};
+
+// ---------------------- VERIFY 2FA -------------------------
+export const verify2FALogin = async ({ userId, otp }, issuer) => {
+  const user = await authHelper.checkUser({ id: userId });
+
+  await authHelper.blockUser({
+    userId,
+    userOtpKey: authHelper.getUser2FAKey(userId),
   });
+  const key = authHelper.getUser2FAKey(userId);
+  const redisOtp = await redisService.get({ key });
+
+  if (!redisOtp) notFoundException("OTP expired or not found");
+  if (redisOtp != otp) return await authHelper.wrongOtpHandler(userId);
+  else {
+    await redisService.del({
+      key: [key, authHelper.getUserOtpTriesKey(userId)],
+    });
+    return await authHelper.verifyLogin({ issuer, user });
+  }
 };
 
 // ---------------------- VERIFY GOOGLE ID -------------------
@@ -262,16 +235,16 @@ export const loginWithGmail = async ({ idToken }, issuer) => {
     confirmEmail: true,
   });
 
-  const otp = generateOtp();
+  const otp = authHelper.generateOtp();
   redisService.set({
-    key: getUserOTPKey(newUser?._id),
+    key: authHelper.getUserOTPKey(user?._id),
     value: otp,
     ttl: 5 * 60,
   });
   eventEmitter.emit(enums.eventEnum.signup, {
     recipients: { to: email },
     otp,
-    name: userData?.name,
+    name: payload?.name,
   });
 
   const token = createTokens({
@@ -302,42 +275,43 @@ export const logout = async (auth, type) => {
         await redisService.del({ key: arr });
       }
       // remove cached user
-      await redisService.del({ key: getUserKey(data?.sub) });
+      await redisService.del({ key: authHelper.getUserKey(data?.sub) });
       break;
     default:
       // create one revoked token
-      await revokedToken(rawToken);
+      await authHelper.revokedToken(rawToken);
       break;
   }
 };
 
 // ---------------------- FORGET PASSWORD --------------------
 export const forgetPassword = async (email) => {
-  const user = await userRepo.findByEmail({ email });
-  if (!user) notFoundException("User not found");
+  const user = await authHelper.checkUser({ email });
   // to revoke any previous tokens
   await user.updateOne({
-    $set: { credintialsChangedAt: Date.now() },
+    $set: { credintialsChangedAt: Math.ceil(Date.now() / 1000) },
   });
   const arr = await redisService.keys({
     prefix: getPrefixRevoke(user?.id),
   });
   arr.length && (await redisService.del({ key: arr }));
-  await createAndSendOtp({ user, event: enums.eventEnum.forget });
+  await authHelper.createAndSendOtp({ user, event: enums.eventEnum.forget });
   return;
 };
 
 // ---------------------- RESET PASSWORD ---------------------
 export const resetPassword = async ({ email, otp, newPassword, cPassword }) => {
-  const user = await userRepo.findByEmail({ email });
-  if (!user) notFoundException("User not found");
+  const user = await authHelper.checkUser({ email });
 
   if (newPassword !== cPassword) badRequestException("Password dont't match");
 
-  await blockUser(user?.id);
+  await authHelper.blockUser({
+    userId: user?.id,
+    userOtpKey: authHelper.getUserOTPForgetKey(user?.id),
+  });
 
   const redisOtp = await redisService.get({
-    key: getUserOTPForgetKey(user?.id),
+    key: authHelper.getUserOTPForgetKey(user?.id),
   });
   // he didn't forget the password
   if (!redisOtp) notFoundException("OTP not found");
@@ -350,6 +324,6 @@ export const resetPassword = async ({ email, otp, newPassword, cPassword }) => {
     });
     return "Password changed";
   } else {
-    await wrongOtpHandler(user?.id);
+    await authHelper.wrongOtpHandler(user?.id);
   }
 };

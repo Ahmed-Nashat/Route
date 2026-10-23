@@ -48,9 +48,11 @@ authRouter.post("/confirmEmail", async (req, res, next) => {
 // ---------------------- SIGNUP -----------------------------
 authRouter.post(
   "/signup",
-  // validation midlleware
+  multerLocal({
+    fileType: fileTypes.images,
+    customPath: "users",
+  }).single("image"),
   validator(authValidation.signupSchema),
-  multerLocal({ fileType: fileTypes.images }).single("image"),
   processFiles({ fileType: fileTypes.images }),
   async (req, res, next) => {
     try {
@@ -117,6 +119,21 @@ authRouter.post("/logout", authMiddleware, async (req, res, next) => {
       res,
       data,
       msg: "Logout",
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ---------------------- VERIFY 2FA -------------------------
+authRouter.post("/verify2fa", async (req, res, next) => {
+  const issuer = `${req.protocol}://${req.hostname}`;
+  try {
+    const tokens = await authService.verify2FALogin(req.body, issuer);
+    return response({
+      res,
+      msg: "2FA verified, login successful",
+      data: tokens,
     });
   } catch (e) {
     next(e);

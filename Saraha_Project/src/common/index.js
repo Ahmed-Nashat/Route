@@ -23,12 +23,13 @@ export { encryptPhoneNumber, decryptPhoneNumber } from "./helpers/index.js";
 export {
   errorHandler,
   authMiddleware,
+  optionalAuth,
   roleBasedAccessMiddleware,
   validator,
   multerLocal,
   processFiles,
   fileTypes,
 } from "./middleware/index.js";
-export { BaseRepo, userRepo } from "./repo/index.js";
+export { BaseRepo, userRepo, messageRepo } from "./repo/index.js";
 export * as redisService from "./services/cache.service.js";
 export * as templates from "./templates/templates.js";
