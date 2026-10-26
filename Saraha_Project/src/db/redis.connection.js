@@ -9,7 +9,7 @@ export const redisConnection = async () => {
   try {
     await redisClient.connect();
   } catch (e) {
-    console.log(e);
+    console.info(e);
     throw e;
   }
 };

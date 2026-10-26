@@ -1,10 +1,20 @@
 import express from "express";
 import cors from "cors";
 import connectDB from "./db/connection.js";
-import { errorHandler } from "./common/index.js";
-import { port, origins } from "./config/config.service.js";
+import { errorHandler, redisService } from "./common/index.js";
+import {
+  port,
+  origins,
+  rate_limit_max_count,
+} from "./config/config.service.js";
 import * as routers from "./module/index.js";
 import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
+import { redisClient } from "./db/redis.connection.js";
+import geoip from "geoip-lite";
+import morgan from "morgan";
+
+if (process.env.NODE_ENV == "production") console.log = () => {};
 
 const app = express();
 
@@ -15,24 +25,64 @@ try {
   console.error(`Database connection failed: ${error.message}`);
   process.exit(1);
 }
+const corsOptions = {
+  // allow this to connect to the database
+  origin: function (origin, cb) {
+    if (origins && !origins.includes(origin))
+      cb(new Error("Not allowed origin"), origin);
+    else cb(null, origin);
+  },
+};
 
+// values:
+//  1 -> trust the last ip
+//  true -> pass any ip
+//  loopback  -> trust reverse proxies running on the same machine
+app.set("trust-proxy", true);
 app.use(
-  cors({
-    // allow this to connect to the database
-    // origin: function (origin, cb) {
-    //   if (!origins.includes(origin))
-    //     cb(new Error("Not allowed origin"), origin);
-    //   else cb(null, origin);
-    // },
+  morgan("dev"),
+  helmet(),
+  express.json(),
+  cors(),
+  rateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    limit: function (req) {
+      const data = geoip.lookup(req.headers["x-forward-for"]);
+      return 100;
+    },
+    legacyHeaders: false,
+    message: JSON.stringify({
+      message: "Too many requests",
+    }),
+    keyGenerator: (req) => {
+      // custom key per request
+      const Ip = req.headers["x-forward-for"];
+      // apply the rate limiter to every url individually
+      return `${Ip}::${req.url}`;
+    },
+    skipSuccessfulRequests: true,
+    store: {
+      async incr(key, cb) {
+        try {
+          const count = await redisService.incr({ key });
+          if (count == rate_limit_max_count) await redisClient.expire(key, 300);
+          cb(null, count);
+        } catch (e) {
+          cb(e);
+        }
+      },
+      async decrement(key, cb) {
+        if (await redisService.exists({ key })) await redisClient.decr(key);
+      },
+    },
   }),
 );
-app.use(helmet());
-app.use(express.json());
 
 // ---------------------- ROUTES -----------------------------
 app.use("/user", routers.userRouter);
 app.use("/auth", routers.authRouter);
 app.use("/message", routers.messageRouter);
+app.use("/conversation", routers.conversationRouter);
 app.use("/uploads", express.static("uploads"));
 
 // ---------------------- HEALTH CHECK -----------------------
@@ -55,5 +105,5 @@ app.use(errorHandler);
 
 // ---------------------- SERVER LISTING ---------------------
 app.listen(port, () => {
-  console.log(`server is running on port ${port}`);
+  console.info(`server is running on port ${port}`);
 });

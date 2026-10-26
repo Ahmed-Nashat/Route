@@ -26,4 +26,5 @@ export const port = Number(process.env.PORT),
   max_send_retries = process.env.MAX_SEND_RETRIES,
   max_otp_retries = process.env.MAX_OTP_RETRIES,
   image_upload_max_count = process.env.IMAGE_UPLOAD_MAX_COUNT,
-  origins = process.env.ORIGINS;
+  origins = process.env.ORIGINS,
+  rate_limit_max_count = process.env.RATE_LIMIT_MAX_COUNT;
