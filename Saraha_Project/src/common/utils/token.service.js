@@ -9,7 +9,7 @@ import {
 import { userRepo } from "../repo/user.repo.js";
 import * as redisService from "../services/cache.service.js";
 import crypto from "crypto";
-import { getUserKey } from "../../module/auth/auth.service.js";
+import { getUserKey } from "../../module/auth/auth.helper.js";
 
 export const createTokens = ({
   userId,

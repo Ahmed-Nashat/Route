@@ -7,6 +7,6 @@ export default async () => {
     throw new Error("DB_URI is missing");
   }
   await mongoose.connect(db_uri);
-  `DB connected: ${mongoose.connection.name}`;
+  console.info(`DB connected: ${mongoose.connection.name}`);
   await redisConnection();
 };
